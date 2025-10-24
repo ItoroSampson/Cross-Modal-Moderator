@@ -3,3 +3,8 @@ uvicorn==0.24.0
 pydantic==2.5.0
 boto3==1.28.62
 prometheus-client==0.17.1
+streamlit==1.28.0
+requests==2.31.0
+pandas==2.1.0
+plotly==5.15.0
+python-multipart==0.0.6

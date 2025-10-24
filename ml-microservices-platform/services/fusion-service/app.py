@@ -25,10 +25,15 @@ class FusionResponse(BaseModel):
     unsafe_found: list
     explanation: str
     processing_time: float
-    prediction_id: str  
+    prediction_id: str
 
-dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
-table = dynamodb.Table('ContentModerationResults')
+
+try:
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+    table = dynamodb.Table('ContentModerationResults')
+except:
+    
+    table = None
 
 @app.post("/fuse")
 async def fuse_decisions(request: FusionRequest):
@@ -43,21 +48,20 @@ async def fuse_decisions(request: FusionRequest):
             
             analysis_id = f"mod_{uuid.uuid4().hex[:8]}"
             
-            # Store in DynamoDB (from my Lambda)
-            item = {
-                'analysis_id': analysis_id,
-                'timestamp': datetime.utcnow().isoformat(),
-                'risk_score': risk_assessment['risk_score'],
-                'needs_review': risk_assessment['needs_review'],
-                'image_categories': original_input.get('image_analysis', {}).get('categories', [])[:3],
-                'text_sentiment': original_input.get('text_analysis', {}).get('sentiment', ''),
-                'unsafe_words_found': original_input.get('text_analysis', {}).get('unsafe_found', []),
-                'moderation_flagged': original_input.get('image_analysis', {}).get('moderation_flagged', False),
-                'explanation': risk_assessment['explanation']
-            }
             
-            
-            table.put_item(Item=item)
+            if table:
+                item = {
+                    'analysis_id': analysis_id,
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'risk_score': risk_assessment['risk_score'],
+                    'needs_review': risk_assessment['needs_review'],
+                    'image_categories': original_input.get('image_analysis', {}).get('categories', [])[:3],
+                    'text_sentiment': original_input.get('text_analysis', {}).get('sentiment', ''),
+                    'unsafe_words_found': original_input.get('text_analysis', {}).get('unsafe_found', []),
+                    'moderation_flagged': original_input.get('image_analysis', {}).get('moderation_flagged', False),
+                    'explanation': risk_assessment['explanation']
+                }
+                table.put_item(Item=item)
             
             processing_time = time.time() - start_time
             
@@ -69,8 +73,8 @@ async def fuse_decisions(request: FusionRequest):
                 text_sentiment=original_input.get('text_analysis', {}).get('sentiment', ''),
                 unsafe_found=original_input.get('text_analysis', {}).get('unsafe_found', []),
                 explanation=risk_assessment['explanation'],
-                processing_time=processing_time
-                prediction_id=analysis_id 
+                processing_time=processing_time,
+                prediction_id=analysis_id
             )
             
     except Exception as e:
